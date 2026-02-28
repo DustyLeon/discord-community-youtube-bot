@@ -33,6 +33,7 @@ Clone the repository and install the required libraries:
 Bash
 pip install -r requirements.txt
 
+
 3. Configuration
 Open bot.py and replace the placeholders with your actual keys:
 
