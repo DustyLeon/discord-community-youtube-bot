@@ -1,0 +1,9 @@
+# Ignore the local database containing your tracked channels
+channels.db
+
+# Ignore environment files if you decide to use them for keys
+.env
+
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
