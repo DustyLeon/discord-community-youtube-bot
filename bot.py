@@ -12,7 +12,8 @@ from googleapiclient.discovery import build
 # IMPORTANT: Replace these placeholders with your actual keys. Never share them publicly!
 DISCORD_TOKEN = "YOUR_DISCORD_BOT_TOKEN_HERE"
 YOUTUBE_API_KEY = "YOUR_YOUTUBE_API_KEY_HERE"
-CHECK_INTERVAL_MINUTES = 15 
+CHECK_INTERVAL_MINUTES = 15
+ALLOWED_GUILD_IDS = {1475161103280635924, 1440857245179969538}
 
 # Initialize YouTube API client
 youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
@@ -29,6 +30,30 @@ class MyBot(commands.Bot):
         check_new_videos.start()
 
 bot = MyBot()
+
+async def allowed_guild_interaction_check(interaction: discord.Interaction):
+    """Allow slash commands only in explicitly approved Discord servers."""
+    if interaction.guild_id in ALLOWED_GUILD_IDS:
+        return True
+
+    await interaction.response.send_message(
+        "❌ This bot is not authorized for this Discord server.",
+        ephemeral=True
+    )
+    return False
+
+bot.tree.interaction_check = allowed_guild_interaction_check
+
+@bot.event
+async def on_ready():
+    for guild in list(bot.guilds):
+        if guild.id not in ALLOWED_GUILD_IDS:
+            await guild.leave()
+
+@bot.event
+async def on_guild_join(guild: discord.Guild):
+    if guild.id not in ALLOWED_GUILD_IDS:
+        await guild.leave()
 
 # --- DATABASE SETUP ---
 def setup_db():
@@ -106,6 +131,10 @@ async def check_new_videos():
     
     for row in rows:
         channel_id, channel_name, last_video_id, discord_channel_id = row
+        discord_channel = bot.get_channel(discord_channel_id)
+        if not discord_channel or discord_channel.guild.id not in ALLOWED_GUILD_IDS:
+            continue
+
         feed_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
         feed = feedparser.parse(feed_url)
         
@@ -120,9 +149,7 @@ async def check_new_videos():
             conn.commit()
             
             if not await is_short(latest_video_id):
-                discord_channel = bot.get_channel(discord_channel_id)
-                if discord_channel:
-                    await discord_channel.send(f"🎥 **{channel_name}** just posted a new video!\n{latest_video.link}")
+                await discord_channel.send(f"🎥 **{channel_name}** just posted a new video!\n{latest_video.link}")
                     
     conn.close()
 
