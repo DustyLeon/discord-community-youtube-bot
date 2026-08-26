@@ -238,18 +238,29 @@ async def list_channels(interaction: discord.Interaction):
 async def remove_channel(interaction: discord.Interaction, channel_name: str):
     await interaction.response.defer(ephemeral=True)
     
+    yt_channel_id, yt_channel_name = get_channel_info(channel_name)
+    if not yt_channel_id:
+        await interaction.followup.send(f"❌ Could not find a YouTube channel matching '{channel_name}'.")
+        return
+    
     conn = sqlite3.connect('channels.db')
     c = conn.cursor()
     
-    c.execute("SELECT channel_id, channel_name FROM channels WHERE channel_name LIKE ?", (f"%{channel_name}%",))
+    c.execute(
+        "SELECT channel_id, channel_name FROM channels WHERE channel_id = ? AND discord_channel_id = ?",
+        (yt_channel_id, interaction.channel_id)
+    )
     row = c.fetchone()
     
     if not row:
-        await interaction.followup.send(f"❌ Could not find '{channel_name}' in the database.")
+        await interaction.followup.send(f"❌ **{yt_channel_name}** is not tracked in this Discord channel.")
         conn.close()
         return
         
-    c.execute("DELETE FROM channels WHERE channel_id = ?", (row[0],))
+    c.execute(
+        "DELETE FROM channels WHERE channel_id = ? AND discord_channel_id = ?",
+        (row[0], interaction.channel_id)
+    )
     conn.commit()
     conn.close()
     
